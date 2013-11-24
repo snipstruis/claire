@@ -51,9 +51,27 @@ public: virtual const char* what() const throw(){
 class Connection{
 	int sockfd;
 public:
-	// deffered initialisation (not recommended)
 	Connection(){}
-	void init(int port){
+	Connection(string host,int port){
+		// create socket
+		sockfd = socket(AF_INET, SOCK_STREAM,0);
+		if(sockfd<0) throw(BadSocket());
+
+		// find host
+		hostent* server = gethostbyname(host.c_str());
+		if(server==NULL) throw(HostNotFound(host));
+
+		// connect
+		sockaddr_in serv_addr;
+		memset(&serv_addr,0,sizeof(serv_addr));
+		serv_addr.sin_family = AF_INET;
+		memcpy(&serv_addr.sin_addr.s_addr,server->h_addr,server->h_length);
+		serv_addr.sin_port = htons(port);
+
+		int status = connect(sockfd,(sockaddr *) &serv_addr,sizeof(serv_addr));
+		if(status<0) throw(ConnectionFailed());
+	}
+	Connection(int port){
 		// create socket
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		if(sockfd<0) throw(BadSocket());
@@ -78,43 +96,12 @@ public:
 		if (sockfd < 0){cerr<<"accept error"<<endl; exit(6);}
 	}
 
-	void init(string host,int port){
-		// create socket
-		sockfd = socket(AF_INET, SOCK_STREAM,0);
-		if(sockfd<0) throw(BadSocket());
-
-		// find host
-		hostent* server = gethostbyname(host.c_str());
-		if(server==NULL) throw(HostNotFound(host));
-
-		// connect
-		sockaddr_in serv_addr;
-		memset(&serv_addr,0,sizeof(serv_addr));
-		serv_addr.sin_family = AF_INET;
-		memcpy(&serv_addr.sin_addr.s_addr,server->h_addr,server->h_length);
-		serv_addr.sin_port = htons(port);
-
-		int status = connect(sockfd,(sockaddr *) &serv_addr,sizeof(serv_addr));
-		if(status<0) throw(ConnectionFailed());
-	}
-
-	// client initialisation (preferred)
-	Connection(string host,int port){init(host,port);}
-
-	// server initialisation (preferred)
-	Connection(int port){init(port);}
-
-
-
-
 	~Connection(){cout<<"closing connection"<<endl;close(sockfd);}
-	uint16_t send(SerialData serialdata){
-		uint16_t size;
-		size = serialdata.size();
+	void send(SerialData serialdata){
+		uint16_t size = serialdata.size();
 		serialdata.insert(serialdata.begin(),size/256);
 		serialdata.insert(serialdata.begin(),size%256);
 		write(sockfd,serialdata.data(),serialdata.size());
-		return size;
 	}
 	SerialData recieve(){
 		uint16_t size;

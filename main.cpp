@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <exception>
+#include <thread>
 #include "connection.hpp"
 using namespace std;
 
@@ -16,24 +17,27 @@ string toString(SerialData data){
 }
 
 void client_test(int argc, char* argv[]){
-	vector<Connection> connections;
+	vector<Connection*> connections; // ptr to prevent destruction on assignment
 	connections.resize(argc/2);
 
 	for(int i=1, a=0; i<argc; i+=2){
-		cout<<a<<": connecting to "<<argv[i]<<" on port "<<argv[i+1]<<"...";
-		try{connections[a++].init( argv[i], atoi(argv[i+1]) );}
+		cout<<"channel "<<a<<": connecting to "<<argv[i]<<" on port "<<argv[i+1]<<"...";
+		try{connections[a++] = new Connection( argv[i], atoi(argv[i+1]) );}
 		catch(const exception &e){cout<<"FAILED: "<<e.what()<<endl; continue;}
 		cout<<"DONE!"<<endl;
 	}
 
+	// interactive chat client
 	int channel;
 	string input;
-	while(cin>>channel>>input){
-		cout<<"sent "<<connections[channel].send(toSerial(input))<<" bytes"<<endl;
+	while(cin>>channel){
+		getline(cin,input);
+		connections[channel]->send(toSerial(input));
+		cout<<"sent "<<input.size()<<" bytes"<<endl;
 	}
 
-	cout<<"press <RETURN> to close connection"<<endl;
-	cin.get();
+	// cleanup
+	for(auto cptr:connections) delete cptr;
 }
 
 void server_test(int port){
@@ -48,6 +52,6 @@ void server_test(int port){
 
 int main(int argc,char* argv[]){
 	if(argc==2) server_test(atoi(argv[1]));
-	else if((argc-1)%2==0) client_test(argc,argv);
+	else if(((argc-1)%2==0) && (argc!=1)) client_test(argc,argv);
 	else cout<<"invalid arguments"<<endl;
 }
