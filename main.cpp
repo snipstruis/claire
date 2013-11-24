@@ -4,48 +4,49 @@
 #include "connection.hpp"
 using namespace std;
 
-void client_test(string hostname, int port){
-	cout<<"client"<<endl;
-	Connection connection(hostname,port);
-
-	string msg = "server, this is client. over.";
+SerialData toSerial(string msg){
 	SerialData s(msg.size());
 	memcpy(s.data(),msg.c_str(),msg.size());
-	connection.send(s);
-	cout<<"sending:  "<<msg<<endl;
+	return s;
+}
+string toString(SerialData data){
+	string s;
+	for(auto d:data) s.push_back((char)d);
+	return s;
+}
 
-	SerialData  response = connection.recieve();
+void client_test(int argc, char* argv[]){
+	vector<Connection> connections;
+	connections.resize(argc/2);
 
-	cout<<"recieved: ";
-	for(auto c:response) cout<<char(c);
-	cout<<endl;
+	for(int i=1, a=0; i<argc; i+=2){
+		cout<<"connecting to "<<argv[i]<<" on port "<<argv[i+1]<<"...";
+		try{connections[a++].client( argv[i], atoi(argv[i+1]) );}
+		catch(const exception &e){cout<<"FAILED: "<<e.what()<<endl; continue;}
+		cout<<"DONE!"<<endl;
+	}
+
+	for(auto &c:connections){
+		cout<<"sending "<<c.send(toSerial("ohai"))<<" bytes"<<endl;
+	}
+
+	cout<<"press <RETURN> to close connection"<<endl;
+	cin.get();
 }
 
 void server_test(int port){
-	cout<<"server"<<endl;
-
+	cout<<"server "<<port<<endl;
 	Connection connection(port);
-
+	cout<<"connected!"<<endl;
 	while(true){
-		SerialData i = connection.recieve();
-		if(i.size()==0) return;
-
-		cout<<"recieved: ";
-		for(auto c:i) cout<<char(c); cout<<endl;
-
-		string msg = "roger client, reading loud and clear.";
-		SerialData s(msg.size());
-		memcpy(s.data(),msg.c_str(),msg.size());
-		connection.send(s);
-		cout<<"sending:  "<<msg<<endl;
-
-		for(unsigned i=0;i<0xFFFFFF; i++){
-			cout<<" \r";
-		}
+		try{cout<<toString(connection.recieve())<<endl;}
+		catch(const exception &e){cout<<e.what()<<endl;return;}
 	}
 }
 
 int main(){
-	//server_test(3144);
-	client_test("localhost",3144);
+	//server_test(50100);
+	char* argv[] = {"client","localhost","50100","localhost","50101","localhost","50102"};
+	int   argc = 7;
+	client_test(argc,argv);
 }
