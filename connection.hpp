@@ -51,17 +51,9 @@ public: virtual const char* what() const throw(){
 class Connection{
 	int sockfd;
 public:
-	// client initialisation
-	Connection(string host,int port){
-		client(host,port);
-	}
-	// server initialisation
-	Connection(int port){
-		server(port);
-	}
 	// deffered initialisation (not recommended)
 	Connection(){}
-	void server(int port){
+	void init(int port){
 		// create socket
 		sockfd = socket(AF_INET, SOCK_STREAM, 0);
 		if(sockfd<0) throw(BadSocket());
@@ -85,7 +77,8 @@ public:
 		sockfd = accept(sockfd, (sockaddr *) &cli_addr, &clilen);
 		if (sockfd < 0){cerr<<"accept error"<<endl; exit(6);}
 	}
-	void client(string host,int port){
+
+	void init(string host,int port){
 		// create socket
 		sockfd = socket(AF_INET, SOCK_STREAM,0);
 		if(sockfd<0) throw(BadSocket());
@@ -104,6 +97,16 @@ public:
 		int status = connect(sockfd,(sockaddr *) &serv_addr,sizeof(serv_addr));
 		if(status<0) throw(ConnectionFailed());
 	}
+
+	// client initialisation (preferred)
+	Connection(string host,int port){init(host,port);}
+
+	// server initialisation (preferred)
+	Connection(int port){init(port);}
+
+
+
+
 	~Connection(){cout<<"closing connection"<<endl;close(sockfd);}
 	uint16_t send(SerialData serialdata){
 		uint16_t size;

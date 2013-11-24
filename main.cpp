@@ -20,14 +20,16 @@ void client_test(int argc, char* argv[]){
 	connections.resize(argc/2);
 
 	for(int i=1, a=0; i<argc; i+=2){
-		cout<<"connecting to "<<argv[i]<<" on port "<<argv[i+1]<<"...";
-		try{connections[a++].client( argv[i], atoi(argv[i+1]) );}
+		cout<<a<<": connecting to "<<argv[i]<<" on port "<<argv[i+1]<<"...";
+		try{connections[a++].init( argv[i], atoi(argv[i+1]) );}
 		catch(const exception &e){cout<<"FAILED: "<<e.what()<<endl; continue;}
 		cout<<"DONE!"<<endl;
 	}
 
-	for(auto &c:connections){
-		cout<<"sending "<<c.send(toSerial("ohai"))<<" bytes"<<endl;
+	int channel;
+	string input;
+	while(cin>>channel>>input){
+		cout<<"sent "<<connections[channel].send(toSerial(input))<<" bytes"<<endl;
 	}
 
 	cout<<"press <RETURN> to close connection"<<endl;
@@ -44,9 +46,8 @@ void server_test(int port){
 	}
 }
 
-int main(){
-	//server_test(50100);
-	char* argv[] = {"client","localhost","50100","localhost","50101","localhost","50102"};
-	int   argc = 7;
-	client_test(argc,argv);
+int main(int argc,char* argv[]){
+	if(argc==2) server_test(atoi(argv[1]));
+	else if((argc-1)%2==0) client_test(argc,argv);
+	else cout<<"invalid arguments"<<endl;
 }
