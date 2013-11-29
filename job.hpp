@@ -1,4 +1,5 @@
 #pragma once
+#include <vector>
 
 class Job{
 public:
@@ -8,6 +9,16 @@ public:
 public:
 	static const uint16_t size = 44;
 	Job(){}
+	Job(SerialData s){
+		uint16_t i=0;
+		memcpy(&id,        &s[i],4); i+=4;
+		memcpy(&pixelsWide,&s[i],4); i+=4;
+		memcpy(&pixelsHigh,&s[i],4); i+=4;
+		memcpy(&x1,        &s[i],8); i+=8;
+		memcpy(&y1,        &s[i],8); i+=8;
+		memcpy(&x2,        &s[i],8); i+=8;
+		memcpy(&y2,        &s[i],8);
+	}
 	Job(uint32_t _id, uint32_t _pixelsWide, uint32_t _pixelsHigh,
 		double _x1, double _y1, double _x2, double _y2):
 		id(_id),pixelsWide(_pixelsWide),pixelsHigh(_pixelsHigh),
@@ -29,23 +40,39 @@ public:
 	}
 };
 
-class Batch{
-public:
-	vector<Job> jobs;
-public:
-	Batch(){}
-	Batch(SerialData s){
-		unsigned nrOfJobs = s.size()/Job::size; // <2 jobs
-		jobs.resize(nrOfJobs);
-		unsigned i= 0;
-		for(Job &job:jobs){
-			job.id         = s[i++];
-			job.pixelsWide = s[i++];
-			job.pixelsHigh = s[i++];
-			job.x1         = s[i++];
-			job.y1         = s[i++];
-			job.x2         = s[i++];
-			job.y2         = s[i++];
-		}
+using Batch = vector<Job>;
+
+Batch deserialize(const SerialData s){
+	Batch r;
+	unsigned nrOfJobs = s.size()/Job::size;
+	r.resize(nrOfJobs);
+	auto from = s.begin();
+	auto to   = s.begin()+Job::size;
+	for(Job &job: r){
+		job  =Job(SerialData(from,to));
+		from+=Job::size;
+		to  +=Job::size;
 	}
-};
+	return r;
+}
+
+SerialData serialize(const Batch v) {
+	SerialData r(v.size()*Job::size);
+	for(Job job:v){
+		SerialData s = job.serialize();
+		r.insert( r.end(), s.begin(), s.end() );
+	}
+	return r;
+}
+
+Batch interpolate(const Job a, const Job b){
+	Batch batch;
+	batch.resize(b.id-a.id);
+	for(unsigned i=a.id; i<b.id; i++){
+		batch[i].x1 = (a.x1-b.x1)/double(i);
+		batch[i].x2 = (a.x2-b.x2)/double(i);
+		batch[i].y1 = (a.y1-b.y1)/double(i);
+		batch[i].y2 = (a.y2-b.y2)/double(i);
+	}
+	return batch;
+}
