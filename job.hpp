@@ -1,5 +1,8 @@
 #pragma once
 #include <vector>
+#include <cmath>
+#include <cassert>
+using namespace std;
 
 class Job{
 public:
@@ -66,13 +69,21 @@ SerialData serialize(const Batch v) {
 }
 
 Batch interpolate(const Job a, const Job b){
-	Batch batch;
-	batch.resize(b.id-a.id);
-	for(unsigned i=a.id; i<b.id; i++){
-		batch[i].x1 = (a.x1-b.x1)/double(i);
-		batch[i].x2 = (a.x2-b.x2)/double(i);
-		batch[i].y1 = (a.y1-b.y1)/double(i);
-		batch[i].y2 = (a.y2-b.y2)/double(i);
+	assert(a.id<=b.id);
+	assert(a.pixelsHigh==b.pixelsHigh);
+	assert(a.pixelsWide==b.pixelsWide);
+
+	Batch batch(b.id-a.id+1);
+	batch.front() = a;
+	batch.back()  = b;
+	int i=1;
+	for(auto it=batch.begin()+1; it<batch.end()-1; it++){
+		it->id = a.id+i;
+		it->x1 = i*(fabs(a.x1-b.x1)/double(b.id-a.id))+a.x1;
+		it->y1 = i*(fabs(a.y1-b.y1)/double(b.id-a.id))+a.y1;
+		it->x2 = i*(fabs(a.x2-b.x2)/double(b.id-a.id))+a.x2;
+		it->y2 = i*(fabs(a.y2-b.y2)/double(b.id-a.id))+a.y2;
+		i++;
 	}
 	return batch;
 }

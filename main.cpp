@@ -38,6 +38,7 @@ void client_thread(Connection* c,Batch batch){
 		iolock.lock();
 		 FILE* file=fopen(filename.c_str(),"w");
 		  fwrite(image.data(),1,image.size(),file);
+		  fflush(file); // force to write to disk _right now_
 		 fclose(file);
 		iolock.unlock();
 	}
@@ -50,36 +51,44 @@ void client_test(int argc, char* argv[]){
 	connections.resize((argc-1)/2);
 
 	for(int i=1, a=0; i<argc; i+=2){
-		cout<<"channel "<<a<<": connecting to "<<argv[i]<<" on port "<<argv[i+1]<<"...";
+		cout<<"channel "<<a<<": connecting to "
+			<<argv[i]<<" on port "<<argv[i+1]<<"..."<<flush;
 		try{connections[a++] = new Connection( argv[i], atoi(argv[i+1]) );}
 		catch(const exception &e){cout<<"FAILED: "<<e.what()<<endl; continue;}
 		cout<<"DONE!"<<endl;
 	}
 
-	vector<Batch> _temp ={
+	vector<Batch> shots ={
 		interpolate(Job(  0,1920,1080,-1,-1, 0, 0),
-					Job( 59,1920,1080, 0, 0, 1, 1) ),
-		interpolate(Job( 60,1920,1080, 0, 0, 1, 1),
-					Job(119,1920,1080, 1, 1, 1, 1) ),
-		interpolate(Job(120,1920,1080, 0, 0, 1, 1),
-					Job(179,1920,1080, 1, 1, 1, 1) )
+					Job(  9,1920,1080, 0, 0, 1, 1) ),
+		interpolate(Job( 10,1920,1080, 0, 0, 1, 1),
+					Job( 19,1920,1080, 1, 1, 1, 1) ),
+		interpolate(Job( 20,1920,1080, 0, 0, 1, 1),
+					Job( 29,1920,1080, 1, 1, 1, 1) )
 	};
 
-	Batch batch = flatten(_temp);
+	// vector<vector<Job>> --> vector<job>
+	Batch batch = flatten(shots);
 
 	vector<Batch> batches = interleave(batch, connections.size());
 
-	vector<thread*> t(connections.size());
+	vector<thread*> threads(connections.size());
 	for(unsigned i=0;i<connections.size();i++){
-		t[i] = new thread(client_thread,connections[i],batches[i]);
+		threads[i] = new thread(client_thread,connections[i],batches[i]);
 	}
 
-	// cleanup
+	// waiting for threads to finish
+	for(thread* t:threads){
+		t->join();
+		delete t;
+	}
+
+	// close connections
 	for(auto cptr:connections) delete cptr;
 }
 
 void server_test(int port){
-	cout<<"server "<<port<<": connecting...";
+	cout<<"server "<<port<<": connecting..."<<flush;
 	Connection connection(port);
 	cout<<"connected!"<<endl;
 	while(true){
