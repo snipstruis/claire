@@ -67,7 +67,6 @@ void client_test(int argc, char* argv[]){
 					Job( 29,1920,1080, 1, 1, 1, 1) )
 	};
 
-	// vector<vector<Job>> --> vector<job>
 	Batch batch = flatten(shots);
 
 	vector<Batch> batches = interleave(batch, connections.size());

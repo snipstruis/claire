@@ -97,6 +97,7 @@ public:
 	}
 
 	~Connection(){cout<<"closing connection"<<endl;close(sockfd);}
+
 	void send(SerialData serialdata){
 		uint16_t size = serialdata.size();
 		serialdata.insert(serialdata.begin(),size/256);

@@ -8,19 +8,17 @@ using namespace std;
 #include "job.hpp"
 
 SerialData mandelbrot(Job job){
-	SerialData ret;
-	ret.resize(job.pixelsHigh*job.pixelsWide+18);
-	ret.assign({
+	SerialData ret = {
 		0,0,2,0,0,0,0,0,0,0,0,0,
 		uint8_t(job.pixelsWide%256),uint8_t(job.pixelsWide/256),
 		uint8_t(job.pixelsHigh%256),uint8_t(job.pixelsHigh/256), 24,0
-	});
-	unsigned i=18;
+	};
+	ret.reserve(3*job.pixelsHigh*job.pixelsWide+18);
 	for(unsigned x=0; x<job.pixelsHigh; x++)
 	for(unsigned y=0; y<job.pixelsWide; y++){
-		ret[i++]=x%256;
-		ret[i++]=y%256;
-		ret[i++]=0;
+		ret.push_back(x%256);
+		ret.push_back(y%256);
+		ret.push_back(0xBB);
 	}
 	return ret;
 }
