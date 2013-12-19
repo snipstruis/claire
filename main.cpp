@@ -13,26 +13,14 @@ using namespace std;
 #include <cstdlib>
 #include <cstdio>
 
-SerialData toSerial(string msg){
-	SerialData s(msg.size());
-	memcpy(s.data(),msg.c_str(),msg.size());
-	return s;
-}
-
-string toString(SerialData data){
-	string s;
-	for(auto d:data) s.push_back((char)d);
-	return s;
-}
-
 #include "job.hpp"
 void client_thread(Connection* c,Batch batch){
 	static mutex iolock;
-	for(Job &job: batch){
-		c->send(job.serialize());
 
+	c->send(serialize(batch));
+
+	for(const Job &job:batch){
 		SerialData image;
-
 		try{image = c->recieve();}
 		catch(const exception &e){cout<<e.what()<<endl;}
 
@@ -48,7 +36,7 @@ void client_thread(Connection* c,Batch batch){
 	}
 }
 
-void client_test(int argc, char* argv[]){
+void client_main(int argc, char* argv[]){
 	cout<<"client"<<endl;
 
 	// establish connections
@@ -71,8 +59,9 @@ void client_test(int argc, char* argv[]){
 		interpolate(Job( 20,1920,1080, 0, 0, 1, 1),
 					Job( 29,1920,1080, 1, 1, 1, 1) )
 	};
-	Batch batch = flatten(shots);
-	vector<Batch> batches = interleave(batch, connections.size());
+	Batch masterBatch = flatten(shots);
+	vector<Batch> batches = interleave(masterBatch, connections.size());
+
 
 	// launch threads
 	vector<thread*> threads(connections.size());
@@ -90,7 +79,7 @@ void client_test(int argc, char* argv[]){
 	for(auto cptr:connections) delete cptr;
 }
 
-void server_test(int port){
+void server_main(int port){
 	cout<<"server "<<port<<": connecting..."<<flush;
 	Connection connection(port);
 	cout<<"connected!"<<endl;
@@ -99,12 +88,13 @@ void server_test(int port){
 	try{batch=deserialize(connection.recieve());}
 	catch(const exception &e){cout<<e.what()<<endl;return;}
 	for(Job job:batch){
+		cout<<job.id<<" "<<job.x1<<" "<<job.y1<<" "<<job.x2<<" "<<job.y2<<" "<<job.pixelsHigh<<" "<<job.pixelsWide<<endl;
 		connection.send(mandelbrot(job));
 	}
 }
 
 int main(int argc,char* argv[]){
-	if(argc==2) server_test(atoi(argv[1]));
-	else if(((argc-1)%2==0) && (argc!=1)) client_test(argc,argv);
+	if(argc==2) server_main(atoi(argv[1]));
+	else if(((argc-1)%2==0) && (argc!=1)) client_main(argc,argv);
 	else cout<<"invalid arguments"<<endl;
 }

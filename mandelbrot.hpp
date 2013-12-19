@@ -6,6 +6,7 @@ using namespace std;
 
 #include "connection.hpp"
 #include "job.hpp"
+#include "utils.hpp"
 
 SerialData mandelbrot(Job job){
 	SerialData ret = {

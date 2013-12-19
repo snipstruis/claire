@@ -4,7 +4,9 @@
 #include <cstring>
 #include <cstdlib>
 #include <vector>
+#include <cmath>
 #include "utils.hpp"
+#include "job.hpp"
 using namespace std;
 
 #include <unistd.h>
@@ -12,8 +14,6 @@ using namespace std;
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
-
-using SerialData = vector<uint8_t>;
 
 #include <exception>
 class BadSocket:public exception{
@@ -51,8 +51,7 @@ public: virtual const char* what() const throw(){
 
 class Connection{
 	int sockfd;
-	const int serverToClientBufferSize = 1080*1920*3+18+4;
-	const int clientToServerBufferSize = 1024*1024; // 6:32 batch limit
+	static const size_t packetsize;
 public:
 	Connection(){}
 	//CLIENT
@@ -75,12 +74,6 @@ public:
 
 		int status = connect(sockfd,(sockaddr *) &serv_addr,sizeof(serv_addr));
 		if(status<0) throw(ConnectionFailed());
-
-		// set buffer sizes
-		setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF,
-				   &clientToServerBufferSize, sizeof(clientToServerBufferSize));
-		setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF,
-				   &serverToClientBufferSize, sizeof(serverToClientBufferSize));
 	}
 	//SERVER
 	Connection(int port){
@@ -107,32 +100,62 @@ public:
 		socklen_t clilen = sizeof(cli_addr);
 		sockfd = accept(sockfd, (sockaddr *) &cli_addr, &clilen);
 		if (sockfd < 0) throw(ConnectionRefused());
-
-		// set buffer sizes
-		setsockopt(sockfd, SOL_SOCKET, SO_SNDBUF,
-				   &serverToClientBufferSize, sizeof(serverToClientBufferSize));
-		setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF,
-				   &clientToServerBufferSize, sizeof(clientToServerBufferSize));
 	}
 
 	~Connection(){cout<<"closing connection"<<endl;close(sockfd);}
 
-	void send(SerialData serialdata){
-		cout<<"->"<<flush;
-		auto sizev = serialize(serialdata.size());
-		serialdata.insert(serialdata.begin(), sizev.begin(), sizev.end() );
-		int bytesSent = write(sockfd, serialdata.data(), serialdata.size());
-		cout<<"bytes sent: "<<bytesSent<<endl;
+	void send(const SerialData& serialdata){
+		cout<<"[send] "<<flush;
+
+		// send size
+		array<uint8_t,4> temp = serialize(serialdata.size());
+		write(sockfd, &temp[0], 4);
+
+		size_t packets   = ceil(serialdata.size()/double(packetsize));
+		cout<<"sending "<<serialdata.size()<<" bytes in "<<packets<<" packets"<<endl;
+		for(size_t i=0;i<packets;i++){
+			// send payload
+			int bytesSent = write(sockfd, serialdata.data(), serialdata.size());
+			cout<<"[send] ["<<i+1<<"/"<<packets<<"] sent "<<bytesSent<<" bytes"<<flush;
+
+			// receive acknowledgement
+			array<uint8_t,4> rcvbuf = {{0}};
+			read(sockfd,&rcvbuf[0],4);
+			if(unsigned(bytesSent)==deserialize(rcvbuf)){
+				cout<<" [OK]"<<endl;
+			}else{
+				cout<<" [NACK]"<<endl;
+			}
+		}
+		cout<<endl;
 	}
 	SerialData recieve(){
-		cout<<"<-"<<flush;
+		//receiving size
+		cout<<"[recv] "<<flush;
 		array<uint8_t,4> sizev = {{0}};
-		read(sockfd, &sizev, 4);
-		uint32_t size = deserialize(sizev);
-		if(size==0) throw(ConnectionClosed());
-		SerialData r(size);
-		int bytesRead = read(sockfd, r.data(), size);
-		cout<<"bytes read: "<<bytesRead+4<<endl;
-		return r;
+		read(sockfd, &sizev[0], 4);
+		uint32_t totalsize = deserialize(sizev);
+		if(totalsize==0) throw(ConnectionClosed());
+
+		size_t packets = ceil(totalsize/double(packetsize));
+		cout<<"expecting "<<totalsize<<" bytes in "<<packets<<" packets"<<endl;
+
+		SerialData totalbuf;
+		totalbuf.reserve(totalsize);
+		for(size_t i=0;i<packets;i++){
+			// receive payload
+			SerialData rcvbuf(packetsize<totalsize?packetsize:totalsize);
+			int bytesRead = read(sockfd, &totalbuf[0], rcvbuf.size());
+			totalbuf.insert(totalbuf.end(),rcvbuf.begin(),rcvbuf.end());
+			cout<<"[recv] ["<<i+1<<"/"<<packets<<"] read "<<bytesRead<<" bytes"<<endl;
+
+			// send acknowledgement
+			array<uint8_t,4> sndbuf = serialize(bytesRead);
+			write(sockfd, &sndbuf[0], 4);
+		}
+		cout<<endl;
+		return totalbuf;
 	}
 };
+
+const size_t Connection::packetsize=100000;

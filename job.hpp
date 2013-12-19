@@ -2,6 +2,8 @@
 #include <vector>
 #include <cmath>
 #include <cassert>
+#include "connection.hpp"
+#include "utils.hpp"
 using namespace std;
 
 class Job{
@@ -60,7 +62,8 @@ Batch deserialize(const SerialData s){
 }
 
 SerialData serialize(const Batch v) {
-	SerialData r(v.size()*Job::size);
+	SerialData r;
+	r.reserve(v.size()*Job::size);
 	for(Job job:v){
 		SerialData s = job.serialize();
 		r.insert( r.end(), s.begin(), s.end() );
@@ -69,21 +72,25 @@ SerialData serialize(const Batch v) {
 }
 
 Batch interpolate(const Job a, const Job b){
-	assert(a.id<=b.id);
+	assert(a.id<b.id);
 	assert(a.pixelsHigh==b.pixelsHigh);
 	assert(a.pixelsWide==b.pixelsWide);
 
-	Batch batch(b.id-a.id+1);
+	Batch batch(b.id-a.id);
 	batch.front() = a;
-	batch.back()  = b;
 	int i=1;
-	for(auto it=batch.begin()+1; it<batch.end()-1; it++){
+	for(auto it=batch.begin()+1; it<batch.end(); it++, i++){
 		it->id = a.id+i;
 		it->x1 = i*(fabs(a.x1-b.x1)/double(b.id-a.id))+a.x1;
 		it->y1 = i*(fabs(a.y1-b.y1)/double(b.id-a.id))+a.y1;
 		it->x2 = i*(fabs(a.x2-b.x2)/double(b.id-a.id))+a.x2;
 		it->y2 = i*(fabs(a.y2-b.y2)/double(b.id-a.id))+a.y2;
-		i++;
+		it->pixelsHigh = a.pixelsHigh;
+		it->pixelsWide = a.pixelsWide;
+	}
+
+	for(Job job:batch){
+		cout<<job.id<<" "<<job.x1<<" "<<job.y1<<" "<<job.x2<<" "<<job.y2<<endl;
 	}
 	return batch;
 }

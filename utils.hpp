@@ -3,7 +3,9 @@
 #include <array>
 using namespace std;
 
-template<class T>
+using SerialData = vector<uint8_t>;
+
+template<typename T>
 vector<vector<T> > interleave(vector<T> v, unsigned l){
 	vector<vector<T> > r(l);
 	int i=0;
@@ -11,7 +13,7 @@ vector<vector<T> > interleave(vector<T> v, unsigned l){
 	return r;
 }
 
-template<class T>
+template<typename T>
 vector<T> flatten(vector< vector<T> > w){
 	vector<T> r;
 	for(const vector<T> &v:w)
