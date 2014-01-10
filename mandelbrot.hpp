@@ -9,6 +9,9 @@ using namespace std;
 #include "utils.hpp"
 
 SerialData mandelbrot(Job job){
+
+    cout << "calculating job " << job.id << ":\n width:" << job.pixelsWide << "\n height:" << job.pixelsHigh << endl;
+
 	SerialData ret = {
 		0,0,2,0,0,0,0,0,0,0,0,0,
 		uint8_t(job.pixelsWide%256),uint8_t(job.pixelsWide/256),
@@ -21,5 +24,6 @@ SerialData mandelbrot(Job job){
 		ret.push_back(y%256);
 		ret.push_back(0xBB);
 	}
+
 	return ret;
 }

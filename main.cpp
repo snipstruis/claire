@@ -17,21 +17,23 @@ using namespace std;
 void client_thread(Connection* c,Batch batch){
 	static mutex iolock;
 
-	c->send(serialize(batch));
+    c->send(serialize(batch));
 
 	for(const Job &job:batch){
 		SerialData image;
-		try{image = c->recieve();}
+        try{image = c->recieve();}
 		catch(const exception &e){cout<<e.what()<<endl;}
 
 		stringstream ss;
-		ss<<job.id<<".tga";
+        ss<<job.id<<".tga";
 		string filename = ss.str();
+        cout << "creating " << filename << endl;
 
 		iolock.lock();
 		ofstream file (filename, ios::out | ios::binary);
 		file.write(reinterpret_cast<const char*>(image.data()), image.size());
 		file.flush();
+        file.close();
 		iolock.unlock();
 	}
 }
@@ -51,13 +53,14 @@ void client_main(int argc, char* argv[]){
 	}
 
 	// create jobs
+    int shotwidth = 1920, shotheight = 1080;
 	vector<Batch> shots ={
-		interpolate(Job(  0,1920,1080,-1,-1, 0, 0),
-					Job(  9,1920,1080, 0, 0, 1, 1) ),
-		interpolate(Job( 10,1920,1080, 0, 0, 1, 1),
-					Job( 19,1920,1080, 1, 1, 1, 1) ),
-		interpolate(Job( 20,1920,1080, 0, 0, 1, 1),
-					Job( 29,1920,1080, 1, 1, 1, 1) )
+        interpolate(Job(  0,shotwidth,shotheight,-1,-1, 0, 0),
+                    Job(  9,shotwidth,shotheight, 0, 0, 1, 1) ),
+     //   interpolate(Job( 10,shotwidth,shotheight, 0, 0, 1, 1),
+     //               Job( 19,shotwidth,shotheight, 1, 1, 1, 1) ),
+     //   interpolate(Job( 20,shotwidth,shotheight, 0, 0, 1, 1),
+     //               Job( 29,shotwidth,shotheight, 1, 1, 1, 1) )
 	};
 	Batch masterBatch = flatten(shots);
 	vector<Batch> batches = interleave(masterBatch, connections.size());
@@ -84,9 +87,10 @@ void server_main(int port){
 	Connection connection(port);
 	cout<<"connected!"<<endl;
 
-	Batch batch;
-	try{batch=deserialize(connection.recieve());}
-	catch(const exception &e){cout<<e.what()<<endl;return;}
+    Batch batch;
+    try{batch=deserialize(connection.recieve());}
+    catch(const exception &e){cout<<e.what()<<endl;return;}
+
 	for(Job job:batch){
 		cout<<job.id<<" "<<job.x1<<" "<<job.y1<<" "<<job.x2<<" "<<job.y2<<" "<<job.pixelsHigh<<" "<<job.pixelsWide<<endl;
 		connection.send(mandelbrot(job));
