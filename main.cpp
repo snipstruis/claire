@@ -21,10 +21,19 @@ void client_thread(Connection* c,Batch batch){
 
 	for(const Job &job:batch){
 		SerialData image;
-        try{image = c->recieve();}
-		catch(const exception &e){cout<<e.what()<<endl;}
+		try{image = c->recieve();}
+		catch(const exception &e){
+			cout<<e.what()<<endl;
+			break;
+		}
 
 		stringstream ss;
+		if(job.id < 1000000) ss<<"0";
+		if(job.id < 100000)  ss<<"0";
+		if(job.id < 10000)   ss<<"0";
+		if(job.id < 1000)    ss<<"0";
+		if(job.id < 100)     ss<<"0";
+		if(job.id < 10)		 ss<<"0";
         ss<<job.id<<".tga";
 		string filename = ss.str();
         cout << "creating " << filename << endl;
@@ -53,14 +62,10 @@ void client_main(int argc, char* argv[]){
 	}
 
 	// create jobs
-    int shotwidth = 1920, shotheight = 1080;
+	int shotwidth = 1920, shotheight = 1080;
 	vector<Batch> shots ={
-        interpolate(Job(  0,shotwidth,shotheight,-1,-1, 0, 0),
-                    Job(  9,shotwidth,shotheight, 0, 0, 1, 1) ),
-     //   interpolate(Job( 10,shotwidth,shotheight, 0, 0, 1, 1),
-     //               Job( 19,shotwidth,shotheight, 1, 1, 1, 1) ),
-     //   interpolate(Job( 20,shotwidth,shotheight, 0, 0, 1, 1),
-     //               Job( 29,shotwidth,shotheight, 1, 1, 1, 1) )
+		interpolate(Job( 0,shotwidth,shotheight, -0.7439072-0.000000401834,0.1347169-0.000000401834, -0.7439072+0.000000401834,0.1347169+0.000000401834),
+					Job( 29,shotwidth,shotheight, -0.7439072-0.000000401834,0.1347169-0.000000401834, -0.7439072+0.000000401834,0.1347169+0.000000401834) )
 	};
 	Batch masterBatch = flatten(shots);
 	vector<Batch> batches = interleave(masterBatch, connections.size());

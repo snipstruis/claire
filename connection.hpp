@@ -51,7 +51,7 @@ public: virtual const char* what() const throw(){
 
 class Connection{
 	int sockfd;
-    static const size_t packetsize;
+	static const size_t packetsize;
 public:
 	Connection(){}
 	//CLIENT
@@ -104,29 +104,29 @@ public:
 
 	~Connection(){cout<<"closing connection"<<endl;close(sockfd);}
 
-    void send(const SerialData& _data){
+	void send(const SerialData& _data){
 		cout<<"[send] "<<flush;
 
 		// send size
-        array<uint8_t,4> temp = serialize(_data.size());
+		array<uint8_t,4> temp = serialize(_data.size());
 		write(sockfd, &temp[0], 4);
 
-        size_t packets   = ceil(_data.size()/double(packetsize));
-        cout<<"sending "<<_data.size()<<" bytes in "<<packets<<" packets"<<endl;
+		size_t packets   = ceil(_data.size()/double(packetsize));
+		cout<<"sending "<<_data.size()<<" bytes in "<<packets<<" packets"<<endl;
 		for(size_t i=0;i<packets;i++){
 			// send payload
-            size_t currentpacketsize=packetsize;
-            if((_data.size()-(packetsize*i)) < packetsize) currentpacketsize = (_data.size()-(packetsize*i));
-            int bytesSent = write(sockfd, &_data[(i*packetsize)], currentpacketsize); //FIXME
+			size_t currentpacketsize=packetsize;
+			if((_data.size()-(packetsize*i)) < packetsize) currentpacketsize = (_data.size()-(packetsize*i));
+			int bytesSent = write(sockfd, &_data[(i*packetsize)], currentpacketsize); //FIXME
 
-			cout<<"[send] ["<<i+1<<"/"<<packets<<"] sent "<<bytesSent<<" bytes"<<flush;
+			//cout<<"[send] ["<<i+1<<"/"<<packets<<"] sent "<<bytesSent<<" bytes"<<flush;
 
-            // receive acknowledgement
+			// receive acknowledgement
 			array<uint8_t,4> rcvbuf = {{0}};
 			read(sockfd,&rcvbuf[0],4);
 
-            if(unsigned(bytesSent)==deserialize(rcvbuf)){
-				cout<<" [OK]"<<endl;
+			if(unsigned(bytesSent)==deserialize(rcvbuf)){
+			//	cout<<" [OK]"<<endl;
 			}else{
 				cout<<" [NACK]"<<endl;
 			}
@@ -138,7 +138,7 @@ public:
 		cout<<"[recv] "<<flush;
 		array<uint8_t,4> sizev = {{0}};
 		read(sockfd, &sizev[0], 4);
-        uint32_t totalsize = deserialize(sizev);
+		uint32_t totalsize = deserialize(sizev);
 		if(totalsize==0) throw(ConnectionClosed());
 
 		size_t packets = ceil(totalsize/double(packetsize));
@@ -146,27 +146,30 @@ public:
 
 		SerialData totalbuf;
 		totalbuf.reserve(totalsize);
-        for(size_t i=1;i<=packets;i++){
+		for(size_t i=1;i<=packets;i++){
 			// receive payload
 
-            size_t currentpacketsize=packetsize;
-            if((totalsize-(packetsize*(i-1))) < packetsize) currentpacketsize = (totalsize-(packetsize*(i-1)));
+			size_t currentpacketsize=packetsize;
+			if((totalsize-(packetsize*(i-1))) < packetsize) currentpacketsize = (totalsize-(packetsize*(i-1)));
 
-            SerialData rcvbuf(packetsize<totalsize?packetsize:totalsize);
-            int currentbytesRead = read(sockfd, &rcvbuf[0], rcvbuf.size());
-            int bytesRead = currentbytesRead;
-            totalbuf.insert(totalbuf.end(),rcvbuf.begin(),rcvbuf.begin()+bytesRead);
-            cout<<"[recv] ["<<i<<"/"<<packets<<"] read "<<currentbytesRead<<" bytes out of "<<currentpacketsize<<endl;
+			SerialData rcvbuf(packetsize<totalsize?packetsize:totalsize);
+			int currentbytesRead = read(sockfd, &rcvbuf[0], rcvbuf.size());
+			int bytesRead = currentbytesRead;
+			totalbuf.insert(totalbuf.end(),rcvbuf.begin(),rcvbuf.begin()+bytesRead);
+			//cout<<"[recv] ["<<i<<"/"<<packets<<"] read "<<currentbytesRead<<" bytes out of "<<currentpacketsize<<endl;
 
-            // try to complete if packet is incomplete
-            while(bytesRead<packetsize && !(i==packets && bytesRead==currentpacketsize)){
-                cout<<"[recv] incomplete packet trying to complete." << endl;
-                currentbytesRead = read(sockfd, &rcvbuf[0], rcvbuf.size());
-                bytesRead += currentbytesRead;
-                totalbuf.insert(totalbuf.end(),rcvbuf.begin(),rcvbuf.begin()+currentbytesRead);
-                cout<<"[recv] ["<<i<<"/"<<packets<<"] read "<<currentbytesRead<<" bytes out of "<<currentpacketsize<<endl;
-            }
+			int pogingen = 0;
+			// try to complete if packet is incomplete
+			while(bytesRead<packetsize && !(i==packets && bytesRead==currentpacketsize)){
+				pogingen++;
+				//cout<<"[recv] incomplete packet trying to complete." << endl;
+				currentbytesRead = read(sockfd, &rcvbuf[0], rcvbuf.size());
+				bytesRead += currentbytesRead;
+				totalbuf.insert(totalbuf.end(),rcvbuf.begin(),rcvbuf.begin()+currentbytesRead);
+				//cout<<"[recv] ["<<i<<"/"<<packets<<"] read "<<currentbytesRead<<" bytes out of "<<currentpacketsize<<endl;
+			}
 
+			if(pogingen>0) cout<<pogingen<<"x incomplete"<<endl;
 			// send acknowledgement
 			array<uint8_t,4> sndbuf = serialize(bytesRead);
 			write(sockfd, &sndbuf[0], 4);
@@ -176,4 +179,4 @@ public:
 	}
 };
 
-const size_t Connection::packetsize=100000;
+const size_t Connection::packetsize=2000;
